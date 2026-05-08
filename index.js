@@ -40,9 +40,9 @@ db.collection('videos').onSnapshot((snapshot) => {
         // Mettiamo un fallback per il titolo nel caso manchi
         const titoloVideo = video.title || 'Nuovo video';
         console.log(`💡 Trovato nuovo video approvato: ${titoloVideo} in ${video.countryCode}`);
-        
-        // Ora possiamo fare il toLowerCase() in sicurezza
-        const countryName = await fetch(`https://restcountries.com/v3.1/alpha/${video.countryCode}`).then(res => res.json()).then(data => data[0]?.name?.common || video.countryCode);
+
+        const countryCode = (video.countryCode > 99) ? video.countryCode.toString() : video.countryCode.toString().padStart(3, '0');
+        const countryName = await fetch(`https://restcountries.com/v3.1/alpha/${countryCode}`).then(res => res.json()).then(data => data[0]?.name?.common);
         const topic = `country_${countryName.toLowerCase().replace(/\s+/g, '_')}`;
 
         const message = {
