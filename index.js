@@ -45,7 +45,7 @@ db.collection('videos').onSnapshot((snapshot) => {
         const countryName = await fetch(`https://restcountries.com/v3.1/alpha/${countryCode}`).then(res => res.json()).then(data => data[0]?.name?.common);
         const topic = `country_${countryName.toLowerCase().replace(/\s+/g, '_')}`;
 
-        const message = {
+        const messageVideo = {
           topic: topic,
           data: {
             title: "Nuovo video disponibile!",
@@ -56,9 +56,22 @@ db.collection('videos').onSnapshot((snapshot) => {
           }
         };
 
+        const messagePersonal = {
+          topic: `user_${video.submittedBy}`,
+          data: {
+            title: "Il tuo video è approvato!",
+            body: `Il tuo video "${titoloVideo}" è stato approvato e ora è visibile a tutti!`,
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            videoTitle: titoloVideo,
+            countryCode: countryCode
+          }
+        };
+
         try {
-          await admin.messaging().send(message);
+          await admin.messaging().send(messageVideo);
           console.log(`Notifica inviata a tutti gli iscritti di ${topic}`);
+          await admin.messaging().send(messagePersonal);
+          console.log(`Notifica inviata all'utente ${video.submittedBy}`);
 
           // Segniamo il video come notificato per non spammarlo di nuovo al prossimo riavvio
           await db.collection('videos').doc(videoId).update({
@@ -118,11 +131,17 @@ app.post('/api/unsubscribe', async (req, res) => {
   }
 });
 
-// rotta pewr disiscrivere un token da tutti i topic (es. quando l'utente si disconnette o elimina l'account)
+// rotta pewr disiscrivere un token da tutti i topic (es. quando l'utente si disconnette)
 app.post('/api/unsubscribeAll', async (req, res) => {
   const { token, uid } = req.body;
 
   try {
+    // disiscrizione dal topic personale
+    const personalTopic = `user_${uid}`;
+    await admin.messaging().unsubscribeFromTopic(token, personalTopic);
+    console.log(`Token disiscritto dal topic personale: ${personalTopic}`);
+
+    // disiscrizione dai topic preferiti salvati nell'account utente
     const userRef = admin.firestore().collection('users').doc(uid);
     const userData = await userRef.get();
     const subscriptions = userData.data()?.subscriptions || [];
@@ -147,6 +166,12 @@ app.post('/api/subscribeAll', async (req, res) => {
   const { token, uid } = req.body;
 
   try {
+    //iscrizione al topic personale
+    const personalTopic = `user_${uid}`;
+    await admin.messaging().subscribeToTopic(token, personalTopic);
+    console.log(`Token iscritto al topic personale: ${personalTopic}`);
+
+    // iscrizione a tutti i topic in base alle preferenze salvate nell'account utente
     const userRef = admin.firestore().collection('users').doc(uid);
     const userData = await userRef.get();
     const subscriptions = userData.data()?.subscriptions || [];
