@@ -75,7 +75,7 @@ db.collection('videos').onSnapshot((snapshot) => {
 
 // Rotta per iscrivere un utente a un Topic
 app.post('/api/subscribe', async (req, res) => {
-  const { token, country } = req.body;
+  const { token, country, uid } = req.body;
 
   // Formattiamo il topic esattamente come fa la sentinella
   const topic = `country_${country.toLowerCase().replace(/\s+/g, '_')}`;
@@ -83,11 +83,86 @@ app.post('/api/subscribe', async (req, res) => {
   try {
     // Il server usa firebase-admin per iscrivere il token al topic
     await admin.messaging().subscribeToTopic(token, topic);
-    
+
+    const userRef = admin.firestore().collection('users').doc(uid);
+    await userRef.update({
+      subscriptions: admin.firestore.FieldValue.arrayUnion(country)
+    });
+
     console.log(`Token iscritto con successo al topic: ${topic}`);
     res.status(200).json({ success: true, message: `Iscritto a ${topic}` });
   } catch (error) {
-    console.error('❌ Errore di iscrizione al topic:', error);
+    console.error('Errore di iscrizione al topic:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Rotta per DISISCRIVERE un utente da un Topic
+app.post('/api/unsubscribe', async (req, res) => {
+  const { token, country, uid } = req.body;
+  const topic = `country_${country.toLowerCase().replace(/\s+/g, '_')}`;
+
+  try {
+    await admin.messaging().unsubscribeFromTopic(token, topic);
+
+    const userRef = admin.firestore().collection('users').doc(uid);
+    await userRef.update({
+      subscriptions: admin.firestore.FieldValue.arrayRemove(country)
+    });
+
+    console.log(`Token disiscritto dal topic: ${topic}`);
+    res.status(200).json({ success: true, message: `Disiscritto da ${topic}` });
+  } catch (error) {
+    console.error(' Errore disiscrizione al topic:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// rotta pewr disiscrivere un token da tutti i topic (es. quando l'utente si disconnette o elimina l'account)
+app.post('/api/unsubscribeAll', async (req, res) => {
+  const { token, uid } = req.body;
+
+  try {
+    const userRef = admin.firestore().collection('users').doc(uid);
+    const userData = await userRef.get();
+    const subscriptions = userData.data()?.subscriptions || [];
+
+    const unsubscribePromises = subscriptions.map(async (country) => {
+      const topic = `country_${country.toLowerCase().replace(/\s+/g, '_')}`;
+      await admin.messaging().unsubscribeFromTopic(token, topic);
+    });
+
+    await Promise.all(unsubscribePromises);
+
+    console.log(`Token disiscritto da tutti i topic`);
+    res.status(200).json({ success: true, message: `Disiscritto da tutti i topic` });
+  } catch (error) {
+    console.error(' Errore disiscrizione da tutti i topic:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// rotta per iscrivere un token a tutti i topic (es. quando l'utente si connette)
+app.post('/api/subscribeAll', async (req, res) => {
+  const { token, uid } = req.body;
+
+  try {
+    const userRef = admin.firestore().collection('users').doc(uid);
+    const userData = await userRef.get();
+    const subscriptions = userData.data()?.subscriptions || [];
+
+    const subscribePromises = subscriptions.map(async (country) => {
+      const topic = `country_${country.toLowerCase().replace(/\s+/g, '_')}`;
+      await admin.messaging().subscribeToTopic(token, topic);
+      console.log(`Token iscritto al topic: ${topic}`);
+    });
+
+    await Promise.all(subscribePromises);
+
+    console.log(`Token iscritto a tutti i topic`);
+    res.status(200).json({ success: true, message: `Iscritto a tutti i topic` });
+  } catch (error) {
+    console.error(' Errore iscrizione a tutti i topic:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
