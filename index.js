@@ -38,7 +38,8 @@ db.collection('videos').onSnapshot((snapshot) => {
       if (!video.notifica_inviata) {
         
         // Mettiamo un fallback per il titolo nel caso manchi
-        const titoloVideo = video.title || 'Nuovo video';
+        const resYoutube = await fetch(`https://www.youtube.com/oembed?url=${video.url}&format=json`);
+        const titoloVideo = (await resYoutube.json()).title || 'Nuovo video';
         console.log(`Trovato nuovo video approvato: ${titoloVideo} in ${video.countryCode}`);
 
         const countryCode = (video.countryCode > 99) ? video.countryCode.toString() : video.countryCode.toString().padStart(3, '0');
@@ -59,8 +60,8 @@ db.collection('videos').onSnapshot((snapshot) => {
         const messagePersonal = {
           topic: `user_${video.submittedBy}`,
           data: {
-            title: "Il tuo video è approvato!",
-            body: `Il tuo video "${titoloVideo}" è stato approvato e ora è visibile a tutti!`,
+            title: "Il tuo video è stato approvato!",
+            body: "Il tuo video " + (titoloVideo ? `"${titoloVideo}"` : '') + " è stato approvato e ora è visibile a tutti!",
             url: `https://www.youtube.com/watch?v=${videoId}`,
             videoTitle: titoloVideo,
             countryCode: countryCode
