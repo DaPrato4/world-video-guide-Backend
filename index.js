@@ -35,7 +35,7 @@ db.collection('videos').onSnapshot((snapshot) => {
       }
 
       // 2. Se arriviamo qui, il video ha il paese ed è approvato. Controlliamo se abbiamo già inviato la notifica.
-      if (!video.notifica_inviata) {
+      if (!video.notifitaion_sent) {
         
         // Mettiamo un fallback per il titolo nel caso manchi
         const resYoutube = await fetch(`https://www.youtube.com/oembed?url=${video.url}&format=json`);
@@ -76,7 +76,7 @@ db.collection('videos').onSnapshot((snapshot) => {
 
           // Segniamo il video come notificato per non spammarlo di nuovo al prossimo riavvio
           await db.collection('videos').doc(videoId).update({
-            notifica_inviata: true
+            notifitaion_sent: true
           });
 
         } catch (error) {
